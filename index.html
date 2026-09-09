@@ -28,38 +28,27 @@
       background: #000;
     }
 
-    /* Slajdy i Efekt Ken Burnsa */
+    /* Slajdy - płynne przenikanie bez animacji Ken Burns */
     .slide {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Wypełnienie kwadratu z obcięciem krawędzi */
+      object-fit: cover;
       opacity: 0;
       transition: opacity 1.5s ease-in-out;
-      transform: scale(1);
     }
 
     .slide.active {
       opacity: 1;
-      animation: kenburns 7s ease-out forwards;
-    }
-
-    @keyframes kenburns {
-      0% {
-        transform: scale(1) translate(0, 0);
-      }
-      100% {
-        transform: scale(1.08) translate(-1%, -1%);
-      }
     }
 
     /* Sterowanie */
     .controls { margin: 20px 0; }
     input[type="range"] { vertical-align: middle; }
 
-    /* Menedżer zdjęć i miniatury */
+    /* Menedżer zdjęć */
     .panel {
       max-width: 800px;
       margin: 30px auto;
@@ -95,13 +84,24 @@
     }
 
     button:hover { background: #0052a3; }
-    button.btn-danger { background: #cc3333; }
+    button.btn-danger { background: #cc3333; margin-top: 6px; }
     button.btn-danger:hover { background: #a32424; }
+
+    select {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      width: 100%;
+      font-size: 12px;
+    }
 
     /* Siatka z miniaturami */
     .gallery-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 15px;
       margin-top: 15px;
     }
@@ -112,23 +112,16 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding-bottom: 8px;
+      padding: 8px;
     }
 
     .thumb-card img {
       width: 100%;
       height: 120px;
       object-fit: cover;
+      border-radius: 4px;
     }
 
-    .thumb-card button {
-      margin-top: 8px;
-      padding: 4px 10px;
-      font-size: 12px;
-    }
-
-    /* Modal / Ekran logowania */
     #login-screen {
       max-width: 360px;
       margin: 100px auto;
@@ -164,7 +157,7 @@
       <img id="img2" class="slide" src="" alt="Photo 2">
     </div>
 
-    <!-- PANEL ZARZĄDZANIA Z MINIATURAMI -->
+    <!-- PANEL ZARZĄDZANIA Z KADROWANIEM -->
     <div class="panel">
       <h3>Menedżer zdjęć</h3>
       <div class="input-group">
@@ -178,7 +171,8 @@
   </div>
 
   <script>
-    let photos = JSON.parse(localStorage.getItem('my_photos')) || [];
+    // Obiekty w tablicy będą miały postać: { url: "...", position: "center" }
+    let photos = JSON.parse(localStorage.getItem('my_photos_v2')) || [];
     let currentIndex = 0;
     let intervalId = null;
     let displayTime = 5000;
@@ -198,7 +192,9 @@
     function initFrame() {
       renderGallery();
       if (photos.length > 0) {
-        document.getElementById('img1').src = photos[0];
+        const img1 = document.getElementById('img1');
+        img1.src = photos[0].url;
+        img1.style.objectPosition = photos[0].position || 'center';
         startSlideshow();
       }
     }
@@ -212,11 +208,10 @@
         const nextImg = activeSlide === 1 ? document.getElementById('img2') : document.getElementById('img1');
         const currentImg = activeSlide === 1 ? document.getElementById('img1') : document.getElementById('img2');
 
-        // Reset animacji Ken Burnsa poprzez ponowne wczytanie klasy
-        nextImg.classList.remove('active');
-        void nextImg.offsetWidth; // Wymuszenie reflow w przeglądarce
+        const item = photos[currentIndex];
+        nextImg.src = item.url;
+        nextImg.style.objectPosition = item.position || 'center';
 
-        nextImg.src = photos[currentIndex];
         nextImg.classList.add('active');
         currentImg.classList.remove('active');
 
@@ -234,13 +229,12 @@
       let url = document.getElementById('new-url').value.trim();
       if (!url) return;
 
-      // Konwersja linku z Dropboxa na bezpośredni plik graficzny
       if (url.includes('dropbox.com')) {
         url = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
       }
 
-      photos.push(url);
-      localStorage.setItem('my_photos', JSON.stringify(photos));
+      photos.push({ url: url, position: 'center' });
+      savePhotos();
       document.getElementById('new-url').value = '';
       renderGallery();
       
@@ -253,7 +247,7 @@
 
     function removePhoto(index) {
       photos.splice(index, 1);
-      localStorage.setItem('my_photos', JSON.stringify(photos));
+      savePhotos();
       
       if (currentIndex >= photos.length) currentIndex = 0;
       
@@ -268,16 +262,40 @@
       }
     }
 
+    function changePosition(index, position) {
+      photos[index].position = position;
+      savePhotos();
+      
+      // Jeśli zmieniamy kadrowanie aktualnie wyświetlanego zdjęcia, uaktualnij na żywo
+      if (index === currentIndex) {
+        const currentImg = activeSlide === 1 ? document.getElementById('img1') : document.getElementById('img2');
+        currentImg.style.objectPosition = position;
+      }
+      renderGallery();
+    }
+
+    function savePhotos() {
+      localStorage.setItem('my_photos_v2', JSON.stringify(photos));
+    }
+
     function renderGallery() {
       const grid = document.getElementById('gallery-grid');
       document.getElementById('photo-count').innerText = photos.length;
       grid.innerHTML = '';
 
-      photos.forEach((url, i) => {
+      photos.forEach((item, i) => {
         const card = document.createElement('div');
         card.className = 'thumb-card';
         card.innerHTML = `
-          <img src="${url}" alt="Foto ${i+1}" loading="lazy">
+          <img src="${item.url}" alt="Foto ${i+1}" style="object-position: ${item.position || 'center'}" loading="lazy">
+          <label style="font-size: 11px; margin-top: 6px; text-align: left;">Kadrowanie:</label>
+          <select onchange="changePosition(${i}, this.value)">
+            <option value="center" ${item.position === 'center' ? 'selected' : ''}>Środek (Domyślnie)</option>
+            <option value="top" ${item.position === 'top' ? 'selected' : ''}>Góra (Pionowe)</option>
+            <option value="bottom" ${item.position === 'bottom' ? 'selected' : ''}>Dół (Pionowe)</option>
+            <option value="left" ${item.position === 'left' ? 'selected' : ''}>Lewo (Poziome)</option>
+            <option value="right" ${item.position === 'right' ? 'selected' : ''}>Prawo (Poziome)</option>
+          </select>
           <button class="btn-danger" onclick="removePhoto(${i})">Usuń</button>
         `;
         grid.appendChild(card);
