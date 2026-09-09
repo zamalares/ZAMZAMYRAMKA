@@ -5,17 +5,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cyfrowa Ramka na Zdjęcia</title>
   <style>
-    body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #121212;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
     .hidden { display: none !important; }
-    #frame-container { position: relative; max-width: 800px; height: 500px; margin: 20px auto; overflow: hidden; border-radius: 8px; }
-    .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.5s ease-in-out; }
-    .slide.active { opacity: 1; }
+
+    /* Kwadratowa ramka (1:1) */
+    #frame-container {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 1 / 1;
+      margin: 20px auto;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      background: #000;
+    }
+
+    /* Slajdy i Efekt Ken Burnsa */
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Wypełnienie kwadratu z obcięciem krawędzi */
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+      transform: scale(1);
+    }
+
+    .slide.active {
+      opacity: 1;
+      animation: kenburns 7s ease-out forwards;
+    }
+
+    @keyframes kenburns {
+      0% {
+        transform: scale(1) translate(0, 0);
+      }
+      100% {
+        transform: scale(1.08) translate(-1%, -1%);
+      }
+    }
+
+    /* Sterowanie */
     .controls { margin: 20px 0; }
-    .panel { max-width: 600px; margin: 30px auto; background: #222; padding: 20px; border-radius: 8px; text-align: left; }
-    input[type="text"], input[type="password"] { width: 70%; padding: 8px; margin-right: 5px; }
-    button { padding: 8px 12px; cursor: pointer; }
-    ul { list-style: none; padding: 0; }
-    li { display: flex; justify-content: space-between; margin: 8px 0; background: #333; padding: 8px; border-radius: 4px; word-break: break-all; }
+    input[type="range"] { vertical-align: middle; }
+
+    /* Menedżer zdjęć i miniatury */
+    .panel {
+      max-width: 800px;
+      margin: 30px auto;
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"], input[type="password"] {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background: #2a2a2a;
+      color: #fff;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #0066cc;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover { background: #0052a3; }
+    button.btn-danger { background: #cc3333; }
+    button.btn-danger:hover { background: #a32424; }
+
+    /* Siatka z miniaturami */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .thumb-card {
+      background: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 8px;
+    }
+
+    .thumb-card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+    }
+
+    .thumb-card button {
+      margin-top: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    /* Modal / Ekran logowania */
+    #login-screen {
+      max-width: 360px;
+      margin: 100px auto;
+      padding: 30px;
+      background: #1e1e1e;
+      border-radius: 12px;
+    }
   </style>
 </head>
 <body>
@@ -23,8 +143,10 @@
   <!-- EKRAN LOGOWANIA -->
   <div id="login-screen">
     <h2>Podaj hasło</h2>
-    <input type="password" id="password-input" placeholder="Hasło...">
-    <button onclick="checkPassword()">Wejdź</button>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <input type="password" id="password-input" placeholder="Hasło...">
+      <button onclick="checkPassword()">Wejdź</button>
+    </div>
   </div>
 
   <!-- APLIKACJA -->
@@ -32,37 +154,38 @@
     <h1>Ramka ze zdjęciami</h1>
     
     <div class="controls">
-      <label for="speed">Czas wyświetlania (sekundy): <span id="speed-val">4</span>s</label><br>
-      <input type="range" id="speed" min="2" max="10" value="4" oninput="updateSpeed(this.value)">
+      <label for="speed">Czas wyświetlania: <span id="speed-val">5</span>s</label><br>
+      <input type="range" id="speed" min="3" max="15" value="5" oninput="updateSpeed(this.value)">
     </div>
 
+    <!-- RAMKA KWADRATOWA 1:1 -->
     <div id="frame-container">
       <img id="img1" class="slide active" src="" alt="Photo 1">
       <img id="img2" class="slide" src="" alt="Photo 2">
     </div>
 
-    <!-- PANEL ZARZĄDZANIA -->
+    <!-- PANEL ZARZĄDZANIA Z MINIATURAMI -->
     <div class="panel">
-      <h3>Zarządzaj zdjęciami</h3>
-      <input type="text" id="new-url" placeholder="Wklej bezpośredni URL do zdjęcia...">
-      <button onclick="addPhoto()">Dodaj</button>
+      <h3>Menedżer zdjęć</h3>
+      <div class="input-group">
+        <input type="text" id="new-url" placeholder="Wklej bezpośredni URL do zdjęcia z Dropboxa...">
+        <button onclick="addPhoto()">Dodaj</button>
+      </div>
 
-      <h4>Lista zdjęć:</h4>
-      <ul id="photo-list"></ul>
+      <h4>Zdjęcia w bibliotece (<span id="photo-count">0</span>):</h4>
+      <div id="gallery-grid" class="gallery-grid"></div>
     </div>
   </div>
 
   <script>
-    const SECRET_HASH = "1a1dc91c907325c69271ddf0c944bc72"; // Domyślne hasło: "pass" (zahashowane MD5 dla wygody przykładowej)
     let photos = JSON.parse(localStorage.getItem('my_photos')) || [];
     let currentIndex = 0;
     let intervalId = null;
-    let displayTime = 4000;
+    let displayTime = 5000;
     let activeSlide = 1;
 
     function checkPassword() {
       const pass = document.getElementById('password-input').value;
-      // Prosta weryfikacja (można zmienić na prosty warunek tekstowy: pass === "twojeHaslo")
       if (pass === "dzieci123") { 
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
@@ -73,7 +196,7 @@
     }
 
     function initFrame() {
-      renderList();
+      renderGallery();
       if (photos.length > 0) {
         document.getElementById('img1').src = photos[0];
         startSlideshow();
@@ -88,6 +211,10 @@
         currentIndex = (currentIndex + 1) % photos.length;
         const nextImg = activeSlide === 1 ? document.getElementById('img2') : document.getElementById('img1');
         const currentImg = activeSlide === 1 ? document.getElementById('img1') : document.getElementById('img2');
+
+        // Reset animacji Ken Burnsa poprzez ponowne wczytanie klasy
+        nextImg.classList.remove('active');
+        void nextImg.offsetWidth; // Wymuszenie reflow w przeglądarce
 
         nextImg.src = photos[currentIndex];
         nextImg.classList.add('active');
@@ -107,7 +234,7 @@
       let url = document.getElementById('new-url').value.trim();
       if (!url) return;
 
-      // Konwersja linku Dropbox na bezpośredni link do obrazka
+      // Konwersja linku z Dropboxa na bezpośredni plik graficzny
       if (url.includes('dropbox.com')) {
         url = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
       }
@@ -115,28 +242,45 @@
       photos.push(url);
       localStorage.setItem('my_photos', JSON.stringify(photos));
       document.getElementById('new-url').value = '';
-      renderList();
-      if (photos.length === 1) initFrame();
+      renderGallery();
+      
+      if (photos.length === 1) {
+        initFrame();
+      } else if (photos.length === 2) {
+        startSlideshow();
+      }
     }
 
     function removePhoto(index) {
       photos.splice(index, 1);
       localStorage.setItem('my_photos', JSON.stringify(photos));
-      renderList();
+      
+      if (currentIndex >= photos.length) currentIndex = 0;
+      
+      renderGallery();
+
       if (photos.length === 0) {
         clearInterval(intervalId);
         document.getElementById('img1').src = '';
         document.getElementById('img2').src = '';
+      } else {
+        startSlideshow();
       }
     }
 
-    function renderList() {
-      const list = document.getElementById('photo-list');
-      list.innerHTML = '';
+    function renderGallery() {
+      const grid = document.getElementById('gallery-grid');
+      document.getElementById('photo-count').innerText = photos.length;
+      grid.innerHTML = '';
+
       photos.forEach((url, i) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${url.substring(0, 40)}...</span> <button onclick="removePhoto(${i})">Usuń</button>`;
-        list.appendChild(li);
+        const card = document.createElement('div');
+        card.className = 'thumb-card';
+        card.innerHTML = `
+          <img src="${url}" alt="Foto ${i+1}" loading="lazy">
+          <button class="btn-danger" onclick="removePhoto(${i})">Usuń</button>
+        `;
+        grid.appendChild(card);
       });
     }
   </script>
